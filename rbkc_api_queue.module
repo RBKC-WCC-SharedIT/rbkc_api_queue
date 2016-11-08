@@ -1,0 +1,58 @@
+<?php
+
+function rbkc_api_queue_queue_name() {
+	return 'rbkc_api_queue';
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function rbkc_api_queue_cron_queue_info() {
+	return array(
+		rbkc_api_queue_queue_name() => array(
+			'worker callback' => 'rbkc_api_queue_worker',
+			'skip on cron' => FALSE,
+			'time' => 30,
+		),
+	);
+}
+
+function rbkc_api_queue_worker($item) {
+	if (!isset($item['worker_callback'])) {
+		watchdog('rbkc_api_queue', 'Error: Missing worker_callback in $item. '.print_r($item, true), null, WATCHDOG_ERROR);
+		throw new Exception('Error: Missing worker_callback in $item.');
+	}
+
+	if (isset($item['worker_include_file'])) {
+		$result = module_load_include($item['worker_include_file']['type'], $item['worker_include_file']['module'], $item['worker_include_file']['name']);
+		if ($result === false) {
+			watchdog('rbkc_api_queue', 'Error: Unable to load iclude file. '.print_r($item, true), null, WATCHDOG_ERROR);
+		}
+	}
+	
+	if (!function_exists($item['worker_callback'])) {
+		watchdog('rbkc_api_queue', 'Error: Worker_callback function does not exist. '.print_r($item, true), null, WATCHDOG_ERROR);
+		throw new Exception("Error: Worker_callback function ".$item['worker_callback']." does not exist.");
+	}
+
+	call_user_func_array($item['worker_callback'], array($item));
+}
+
+/**
+ * Add a queue item to be processed during cron
+ * @param  [type] $item array(
+ *                          // parameters to pass to module_load_include, 
+ *                      	worker_include_file => array( 
+ *                      		'type' => 
+ *                      		'module' =>
+ *                      		'name' =>
+ *                      	),
+ *                      	// user id of the user that requeted this task
+ *                      	'requester_uid' => 
+ *                      	// any other params relevant to this request
+ *                      	...                     	
+ *                      )
+ */
+function rbkc_api_queue_add($item) {
+	DrupalQueue::get(rbkc_api_queue_queue_name())->createItem($item);
+}

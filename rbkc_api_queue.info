@@ -1,0 +1,6 @@
+name = RBKC API Queue
+description = Processes items in the queue of inbound API requests
+core = 7.x
+package = RBKC
+
+
